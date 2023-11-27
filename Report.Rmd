@@ -1,0 +1,27 @@
+---
+title: "Report"
+author: "Inigo Pikabea and Max Tico"
+date: "2023-11-27"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+# Clear plots
+if(!is.null(dev.list())) dev.off()
+
+# Clean workspace
+rm(list=ls())
+
+library(tidyverse);library(EnvStats);library(ggplot2); library(ggpubr); library(visdat)
+library(FactoMineR);library(DataExplorer);library(mice); library(lmtest);library(gridExtra); library(chemometrics); library(car);library(regclass)
+
+
+setwd("C:/Users/usuario/Desktop/SIM/SIM-project-2")
+knitr::opts_chunk$set(warnign=FALSE, message=FALSE)
+```
+
+## Data Reading
+
+```{r, read_data}
+df <- read.csv("Data/WA_Fn-UseC_-Telco-Customer-Churn.xls")
+```
