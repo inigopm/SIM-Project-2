@@ -30,6 +30,7 @@ but additional factors should also be created as a discretization of each numeri
 - Exploratory Data Analysis for each variables (numeric summary and graphic support).
 
 **Data Quality Report:**
+
 Per variable, count:
 
 - Number of missing values
