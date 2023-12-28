@@ -13,15 +13,351 @@ if(!is.null(dev.list())) dev.off()
 rm(list=ls())
 
 library(tidyverse);library(EnvStats);library(ggplot2); library(ggpubr); library(visdat)
-library(FactoMineR);library(DataExplorer);library(mice); library(lmtest);library(gridExtra); library(chemometrics); library(car);library(regclass)
+library(FactoMineR);library(DataExplorer);library(mice); library(lmtest);library(gridExtra); library(chemometrics); library(car);library(regclass);library(missMDA)
 
 
-setwd("C:/Users/usuario/Desktop/SIM/SIM-project-2")
+#setwd("C:/Users/usuario/Desktop/SIM/SIM-project-2")
 knitr::opts_chunk$set(warnign=FALSE, message=FALSE)
 ```
-
-## Data Reading
 
 ```{r, read_data}
 df <- read.csv("Data/WA_Fn-UseC_-Telco-Customer-Churn.xls")
 ```
+
+GitHub was used as Version Control System for this project.
+
+The contribution of each member is visible through the following repository: https://github.com/inigopm/SIM-Project-2.git
+
+And the task distribution: https://github.com/inigopm/Projects
+
+# Data preparation
+
+As a first step, we imported the training data through the 'read_csv' function. 
+
+Then we performed data preparation over the data. It consisted of 4 different steps: Univariate Descriptive Analysis, Data Quality report, Imputation and Profiling.
+
+## Univariate Descriptive Analysis
+
+Before performing the descriptive analysis, some variables had to be changed in order to better understand them and also to follow the same characteristics
+
+```{r}
+str(df)
+```
+
+Some numeric variables variables, corresponding to qualitative concepts, need to be converted to factors:
+```{r}
+columns_to_factor <- c("gender", "SeniorCitizen", "Partner", "Dependents", 
+                        "PhoneService", "MultipleLines", "InternetService", 
+                        "OnlineSecurity", "OnlineBackup", "DeviceProtection", 
+                        "TechSupport", "StreamingTV", "StreamingMovies", "Contract", 
+                        "PaperlessBilling", "PaymentMethod","Churn")
+
+# Loop through each column and convert to factor
+for (col in columns_to_factor) {
+  df[[col]] <- factor(df[[col]])
+}
+```
+
+For numeric variables corresponding to real quantitative concepts, we will keep them as numeric but we will create additional factors as a discretization of each one. For this purpose, we created a factor for each numeric variable, consisting of 4 different bins (values).
+
+```{r}
+# Monthly charges
+# Define the breaks for discretization (bins)
+breaks <- seq(0, 120, by = 30)  
+
+# Create factor variable using cut()
+df$factor_monthlycharges <- cut(df$MonthlyCharges, breaks = breaks, labels = c("Very_low", "Low", "Medium", "High"), include.lowest = TRUE)
+
+# Total charges
+# Define the breaks for discretization (bins)
+breaks <- seq(18.8, 8684.8, by = 2000)  
+
+# Create factor variable using cut()
+df$factor_totalcharges <- cut(df$TotalCharges, breaks = breaks, labels = c("Very_low", "Low", "Medium", "High"), include.lowest = TRUE, na.rm = TRUE)
+```
+
+After this, we can now perform an Exploratory Data Analysis for each variable
+
+*variable 1: Gender*
+
+Gender is a binary variable composed of two values: Female & Male. We used a barplot to see the numbers of each binary value. We observed 3488 individuals corresponding to Female and 3555 individuals corresponding to Male. 
+```{r}
+summary(df$gender)
+
+ggplot(data=df,aes(gender,fill=gender))+
+  geom_bar()+
+  stat_count(geom = "text", colour = "black", size = 3.5,
+              aes(label = after_stat(count)),position=position_stack(vjust=0.5))
+```
+*variable 2: SeniorCitizen*
+
+SeniorCitizen is a binary variable composed of two main values: 0 and 1. 0 represents that the customer is not a senior citizen and 1 yes. To visualize the distribution of values in this feature, we used a barplot. Here we observed a more unequal distribution of individuals across these two values: 5901 being not a senior citizen and 1142 being a senior citizen.
+```{r}
+summary(df$SeniorCitizen)
+
+ggplot(data=df,aes(SeniorCitizen,fill=SeniorCitizen))+
+  geom_bar()+
+  stat_count(geom = "text", colour = "black", size = 3.5,
+              aes(label = after_stat(count)),position=position_stack(vjust=0.5))
+```
+*variable 3: Partner*
+
+Partner is a binary variable with two values: No and Yes (Yes having a partner and No not). We choose a barplot to better understand the distribution of our data across this feature. We did observe a balanced distribution, observing 3641 customer without partner and 3402 with partner.
+```{r}
+summary(df$Partner)
+
+ggplot(data=df,aes(Partner,fill=Partner))+
+  geom_bar()+
+  stat_count(geom = "text", colour = "black", size = 3.5,
+              aes(label = after_stat(count)),position=position_stack(vjust=0.5))
+```
+
+*variable 4: Dependents*
+
+Dependents is a binary variable consisting of two main values: Yes (Customer has dependent) and No (Customer has not dependent). Again, we used a bar plot to visualize this variable. We observed 4933 individuals without dependent and 2110 individuals with dependent.
+```{r}
+summary(df$Dependents)
+
+ggplot(data=df,aes(Dependents,fill=Dependents))+
+  geom_bar()+
+  stat_count(geom = "text", colour = "black", size = 3.5,
+              aes(label = after_stat(count)),position=position_stack(vjust=0.5))
+```
+*variable 5: tenure*
+
+Tenure is a numeric variable. This numeric variable has not NA or missing values. To visualize the distribution of this variable, we used a histogram and a boxplot. We observed that most individuals were comprised between 0 and 5. In the boxplot, we did not observe any outlier in this variable.
+```{r}
+summary(df$tenure)
+
+hist(df$tenure)
+
+length(Boxplot(df$tenure))
+
+```
+*variable 6: PhoneService*
+
+PhoneService is a binary variable consisting of Yes (Customer with PhoneService) and No (Customer without PhoneService). In the graphic below, we observed an unbalanced distribution of values, observing 682 individuals without Phone service and 6361 individuals with phone service.
+```{r}
+summary(df$PhoneService)
+
+ggplot(data=df,aes(PhoneService,fill=PhoneService))+
+  geom_bar()+
+  stat_count(geom = "text", colour = "black", size = 3.5,
+              aes(label = after_stat(count)),position=position_stack(vjust=0.5))
+```
+*variable 7: MultipleLines*
+
+MultipleLines is a factor variable which consists of three values: If customer has Phone Service, how many of them has multiple lines (Yes) or not (No). The third value represents those individual without Phone service. We observed 3390 customers without multiple lines, 2971 with multiple lines and again, consistent with the values from the previous variable (PhoneService), 682 individuals without phone service.
+```{r}
+summary(df$MultipleLines)
+
+ggplot(data=df,aes(MultipleLines,fill=MultipleLines))+
+  geom_bar()+
+  stat_count(geom = "text", colour = "black", size = 3.5,
+              aes(label = after_stat(count)),position=position_stack(vjust=0.5))
+```
+*variable 8: InternetService*
+
+InternetService is a factor variable consisting of three values: DSL, Fiber Optic and No. In the barplot below, we observed 2421 individuals having DSL, 3096 having Fiber Optic and 1526 without internet service. 
+```{r}
+summary(df$InternetService)
+
+ggplot(data=df,aes(InternetService,fill=InternetService))+
+  geom_bar()+
+  stat_count(geom = "text", colour = "black", size = 3.5,
+              aes(label = after_stat(count)),position=position_stack(vjust=0.5))
+```
+
+*variable 9: OnlineSecurity*
+
+OnlineSecurity is a factor variable which has three values: From those individuals with internet service, how many of them have online security (Yes) or not (No). The third value corresponds to those customers without internet service. We observed 2019 customers with online security, 3498 without online security, and 1526 individuals without internet service (consistent with previous analysis).
+```{r}
+summary(df$OnlineSecurity)
+
+ggplot(data=df,aes(OnlineSecurity,fill=OnlineSecurity))+
+  geom_bar()+
+  stat_count(geom = "text", colour = "black", size = 3.5,
+              aes(label = after_stat(count)),position=position_stack(vjust=0.5))
+```
+
+*variable 10: OnlineBackup*
+
+OnlineBackup is a factor variable which has three values: From those individuals with internet service, how many of them have online backup (Yes) or not (No). The third value corresponds to those customers without internet service. We observed 2429 customers with online backup, 3088 without online backup, and 1526 individuals without internet service (consistent with previous analysis).
+```{r}
+summary(df$OnlineBackup)
+
+ggplot(data=df,aes(OnlineBackup,fill=OnlineBackup))+
+  geom_bar()+
+  stat_count(geom = "text", colour = "black", size = 3.5,
+              aes(label = after_stat(count)),position=position_stack(vjust=0.5))
+```
+
+*variable 11: DeviceProtection*
+
+DeviceProtection is a factor variable which has three values: From those individuals with internet service, how many of them have device protection (Yes) or not (No). The third value corresponds to those customers without internet service. We observed 2422 customers with device protection, 3095 without device protection, and 1526 individuals without internet service (consistent with previous analysis).
+```{r}
+summary(df$DeviceProtection)
+
+ggplot(data=df,aes(DeviceProtection,fill=DeviceProtection))+
+  geom_bar()+
+  stat_count(geom = "text", colour = "black", size = 3.5,
+              aes(label = after_stat(count)),position=position_stack(vjust=0.5))
+```
+
+*variable 12: TechSupport*
+
+TechSupport is a factor variable which has three values: From those individuals with internet service, how many of them have tech support (Yes) or not (No). The third value corresponds to those customers without internet service. We observed 2044 customers with tech support, 3473 without tech support, and 1526 individuals without internet service (consistent with previous analysis).
+```{r}
+summary(df$TechSupport)
+
+ggplot(data=df,aes(TechSupport,fill=TechSupport))+
+  geom_bar()+
+  stat_count(geom = "text", colour = "black", size = 3.5,
+              aes(label = after_stat(count)),position=position_stack(vjust=0.5))
+```
+
+*variable 13: StreamingTV*
+
+StreamingTV is a factor variable which has three values: From those individuals with internet service, how many of them have StreamingTV (Yes) or not (No). The third value corresponds to those customers without internet service. We observed 2707 customers with StreamingTV, 2810 without StreamingTV, and 1526 individuals without internet service (consistent with previous analysis).
+```{r}
+summary(df$StreamingTV)
+
+ggplot(data=df,aes(StreamingTV,fill=StreamingTV))+
+  geom_bar()+
+  stat_count(geom = "text", colour = "black", size = 3.5,
+              aes(label = after_stat(count)),position=position_stack(vjust=0.5))
+```
+
+*variable 14: StreamingMovies*
+
+StreamingMovies is a factor variable which has three values: From those individuals with internet service, how many of them have StreamingMovies (Yes) or not (No). The third value corresponds to those customers without internet service. We observed 2732 customers with StreamingMovies, 2785 without StreamingMovies, and 1526 individuals without internet service (consistent with previous analysis).
+```{r}
+summary(df$StreamingMovies)
+
+ggplot(data=df,aes(StreamingMovies,fill=StreamingMovies))+
+  geom_bar()+
+  stat_count(geom = "text", colour = "black", size = 3.5,
+              aes(label = after_stat(count)),position=position_stack(vjust=0.5))
+```
+
+*variable 15: Contract*
+
+Contract is a factor variable consisting of three values: Month-to-month, One year and Two year. In the plot below, we observed 3875 individuals having a month-to-month contract, 1473 customers with one year contract and the remaining 1695 having a two year contract.
+```{r}
+summary(df$Contract)
+
+ggplot(data=df,aes(Contract,fill=Contract))+
+  geom_bar()+
+  stat_count(geom = "text", colour = "black", size = 3.5,
+              aes(label = after_stat(count)),position=position_stack(vjust=0.5))
+```
+
+*variable 16: PaperlessBilling*
+
+PaperlessBilling is a binary variable. Yes (4171 individuals) represents that the customer has paper billing and No (2872 individuals) the opposite. 
+```{r}
+summary(df$PaperlessBilling)
+
+ggplot(data=df,aes(PaperlessBilling,fill=PaperlessBilling))+
+  geom_bar()+
+  stat_count(geom = "text", colour = "black", size = 3.5,
+              aes(label = after_stat(count)),position=position_stack(vjust=0.5))
+```
+
+*variable 17: PaymentMethod*
+
+PaymentMethod is a factor variable consisting of four main values: Bank transfer (1544 customers), credit card (1522 customers), electronic check (2365 customers) and mailed check (1612 customers). 
+```{r}
+summary(df$PaymentMethod)
+
+ggplot(data=df,aes(PaymentMethod,fill=PaymentMethod))+
+  geom_bar()+
+  stat_count(geom = "text", colour = "black", size = 3.5,
+              aes(label = after_stat(count)),position=position_stack(vjust=0.5))
+```
+
+*variable 18: Churn*
+
+Churn is a binary variable representing if customers churned (Yes) or not (No). We found that 1869 individuals churned and 5174 not.   
+```{r}
+summary(df$Churn)
+
+ggplot(data=df,aes(Churn,fill=Churn))+
+  geom_bar()+
+  stat_count(geom = "text", colour = "black", size = 3.5,
+              aes(label = after_stat(count)),position=position_stack(vjust=0.5))
+```
+
+*variable 19: Monthly Charges (factor)*
+
+Monthly charges was originally a numerical variable converted into a categorical variable where each value corresponds to a numeric interval. The values of this feature are_ Very_low, low, medium and high. 
+```{r}
+summary(df$factor_monthlycharges)
+
+ggplot(data=df,aes(factor_monthlycharges,fill=factor_monthlycharges))+
+  geom_bar()+
+  stat_count(geom = "text", colour = "black", size = 3.5,
+              aes(label = after_stat(count)),position=position_stack(vjust=0.5))
+```
+
+*variable 20: Total Charges (factor)*
+
+Total charges was originally a numerical variable converted into a categorical variable where each value corresponds to a numeric interval. The values of this feature are_ Very_low, low, medium and high. Here we observed some NA's (85). 
+```{r}
+summary(df$factor_totalcharges)
+
+ggplot(data=df,aes(factor_totalcharges,fill=factor_totalcharges))+
+  geom_bar()+
+  stat_count(geom = "text", colour = "black", size = 3.5,
+              aes(label = after_stat(count)),position=position_stack(vjust=0.5))
+```
+
+## Data Quality Report
+
+Afterwards, for each variable we counted the number of missing values and ranked them according to the sum of missing values. In total, we found 95 missing values, corresponding to variables
+TotalCharges and factor_totalcharges. We performed a boxplot for every numerical feature in order to identify outliers but no outliers were identified.
+```{r}
+missing_counts <- colSums(is.na(df));missing_counts
+
+total_missings <- sum(is.na(df));total_missings
+
+# Outlier detection
+length(Boxplot(df$tenure, id = list(n = Inf)))
+length(Boxplot(df$MonthlyCharges, id = list(n = Inf)))
+length(Boxplot(df$TotalCharges, id = list(n = Inf)))
+
+```
+
+We also counted the number of missings per individuals and number of outliers (including multivariant outliers). There are some individuals which have up to two missings. 
+```{r}
+missing_per_individual <- rowSums(is.na(df));missing_per_individual
+```
+
+Falta create variable ???
+
+## Imputation
+
+As we observed before, there are some variables of our dataset with missing values (TotalCharges & factor_totalcharges). In order to solve this, we imputed those values. As one of this variables is numeric and the other one is categorical, we had to follow different approaches. For the numeric variable, we used imputePCA() function from missMDA library. For the categoric variable we used imputeMCA() function from missMDA library too, which is helpful for imputation of missing values in categorical features.
+```{r}
+# Imputation of numeric variable TotalCharges
+res.pca <- imputePCA(df[, c(6,19:20)])
+df$TotalCharges <- res.pca$completeObs[, 3]
+
+# Imputation of categorical variable factor_totalcharges
+res.mca <- imputeMCA(df[, c(2:5,7:18,21:23)])
+df$factor_totalcharges <- res.mca$completeObs[, 19]
+```
+
+## Profiling
+
+Catdes() is an R function from FactoMineR which is used to describe one factor by categorical variables and/or by qualitative variables. First we analyzed the categorical variables which characterized our binary target variable. In the test.chi2 we can observe that all variables are significant. From those, the ones that exhibited the lowest p.value were Contract, OnlineSecurity, TechSupport, InternetService, PaymentMethod, OnlineBackup & DeviceProtection. 
+We lately focused on the description of each category of our binary variable by the categories of all categorical variables in our dataset. We observed that Two-year contract factor had the lowest p.value among all factors in No category (Churn), meaning that it is a very important factor to describe the No category. The following categories, where corresponding to no Internet Service in different variables. This can be explained as it is the same value repeated in many columns. For the Yes category, we found that Month-to-month factor from Contract variable had lowest p.value, being the category describing 'Yes' the most. For the following categories we observed the same pattern as in 'No' category.
+
+```{r}
+catdes.res <- catdes(df,21)
+# Assessing which categorical variables characterized the most our target
+catdes.res$test.chi2
+# Description of each category by all categorical variables
+catdes.res$category
+```
+
