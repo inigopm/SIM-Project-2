@@ -361,3 +361,15 @@ catdes.res$test.chi2
 catdes.res$category
 ```
 
+# Separation between Train and Test datasets
+
+We will perform separation of the data into train and test.
+```{r}
+set.seed(123)
+# Create an index to randomly split the data
+index <- sample(1:nrow(df), nrow(df)*0.8)  # 80% for training, 20% for testing
+# Create the training set
+train_data <- df[index, ]
+# Create the testing set
+test_data <- df[-index, ]
+```
