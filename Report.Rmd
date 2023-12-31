@@ -42,6 +42,7 @@ Before performing the descriptive analysis, some variables had to be changed in 
 
 ```{r}
 str(df)
+summary(df)
 ```
 
 Some numeric variables variables, corresponding to qualitative concepts, need to be converted to factors:
@@ -312,6 +313,51 @@ ggplot(data=df,aes(factor_totalcharges,fill=factor_totalcharges))+
               aes(label = after_stat(count)),position=position_stack(vjust=0.5))
 ```
 
+## Univariate and Multivariate analysis.
+
+After taking the only 3 numeric values, the analysis showed that there are no univariate outliers. The lack of univariate outliers in the data suggests that the values within each of these variables fall within a reasonable range, without extreme values that could skew the analysis.
+
+-- FALTA COMENTAR MULTIVARIATE ANALYSIS (NO SE COMO INTERPRETAR LA GRAFICA)
+
+```{r}
+
+num_outliers <- c("tenure", "MonthlyCharges", "TotalCharges")
+for(i in 1:length(num_outliers)) {
+  columna <- num_outliers[i]
+  
+  # Calculate the thresholds
+  q1 <- quantile(df[columna],0.25, na.rm = TRUE) 
+  q3 <- quantile(df[columna],0.75, na.rm = TRUE) 
+  iqr <- q3 - q1
+  mild_l <- q1 - iqr*1.5
+  mild_h <- q3 + iqr*1.5
+  high_l <- q1 - iqr*3
+  high_h <- q3 + iqr*3
+  
+  # Create the plot
+  p <- ggplot(df, aes(x=!!sym(columna))) +
+    geom_histogram(color="black", fill="white", bins=30) +
+    geom_vline(aes(xintercept=mild_l), color="blue", linetype="dashed") +
+    geom_vline(aes(xintercept=mild_h), color="blue", linetype="dashed") +
+    geom_vline(aes(xintercept=high_l), color="red", linetype="dashed") +
+    geom_vline(aes(xintercept=high_h), color="red", linetype="dashed") +
+    labs(x = columna, y="Frequency", title = paste("Histogram of", columna))
+  # Add the plot to the list
+  print(p)
+}
+
+res.out = Moutlier(df[, num_outliers], quantile = 0.9995, col="green")
+
+outlier_index <- which((res.out$md > res.out$cutoff)&(res.out$rd > res.out$cutoff))
+length(outlier_index)
+
+par(mfrow=c(1,1))
+plot( res.out$md, res.out$rd )
+abline(h=res.out$cutoff, col="red")
+abline(v=res.out$cutoff, col="red")
+
+```
+
 ## Data Quality Report
 
 Afterwards, for each variable we counted the number of missing values and ranked them according to the sum of missing values. In total, we found 95 missing values, corresponding to variables
@@ -372,4 +418,48 @@ index <- sample(1:nrow(df), nrow(df)*0.8)  # 80% for training, 20% for testing
 train_data <- df[index, ]
 # Create the testing set
 test_data <- df[-index, ]
+```
+
+# Modeling using numeric variables.
+
+
+Five logistic regression models were developed to predict customer churn using different combinations and transformations of the numeric variables tenure, MonthlyCharges, and TotalCharges.
+
+Model 1 incorporated all three variables (tenure, MonthlyCharges, TotalCharges). However, high multicollinearity was detected between tenure and TotalCharges, leading to their exclusion due to redundancy. This model yielded an AIC of 5205.915.
+
+Model 2 simplified the approach by using only tenure and MonthlyCharges, resulting in significantly reduced multicollinearity (VIF ~ 1.29 for both variables).
+
+Model 3 explored the effect of transforming MonthlyCharges into a logarithmic scale, hypothesizing a non-linear relationship with churn. This model, however, showed a slight increase in the AIC, suggesting it may not improve the prediction over the simpler Model 2.
+
+Model 4 introduced an interaction term between tenure and MonthlyCharges.
+
+Model 5 took a more complex approach, using polynomial transformations for both tenure and MonthlyCharges. This model achieved the lowest AIC, indicating a better fit. However, the complexity of this model, with higher-order polynomials, might lead to overfitting and interpretability challenges, despite its apparent predictive power.
+```{r}
+
+mod1 <- glm(Churn ~ tenure + MonthlyCharges + TotalCharges, family="binomial", data=train_data)
+mod1
+vif(mod1) # Correlacion muy alta entre Total y tenure. Quitamos Total por ser ombinacion lineal de tenure.
+AIC(mod1)
+
+mod2 <- glm(Churn ~ tenure + MonthlyCharges, family="binomial", data=train_data)
+mod2
+vif(mod2)
+AIC(mod2)
+
+# Using transformations
+mod3 <- glm(Churn ~ tenure + log(MonthlyCharges), family="binomial", data=train_data)
+mod3
+vif(mod3)
+AIC(mod3)
+
+mod4 <- glm(Churn ~ tenure * MonthlyCharges, family="binomial", data=train_data)
+mod4
+vif(mod4)
+AIC(mod4)
+
+
+mod5 <- glm(Churn ~ poly(tenure, 7) + poly(MonthlyCharges, 11), family="binomial", data=train_data)
+mod5
+vif(mod5)
+AIC(mod5)
 ```
