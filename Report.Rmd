@@ -5,6 +5,11 @@ date: "2023-11-27"
 output: html_document
 ---
 
+- TODOS:  Data validation is mixed of ‘common sense and sector knowledge’: Does the data make
+sense? Does the data follow the appropriate rules for its field? Does it prove or disprove the
+working theory, or bring any insight to light? Can you find trends in the data to help you form
+a new theory? If not, is that because of a data quality issue?
+
 ```{r setup, include=FALSE}
 # Clear plots
 if(!is.null(dev.list())) dev.off()
@@ -13,7 +18,7 @@ if(!is.null(dev.list())) dev.off()
 rm(list=ls())
 
 library(tidyverse);library(EnvStats);library(ggplot2); library(ggpubr); library(visdat)
-library(FactoMineR);library(DataExplorer);library(mice); library(lmtest);library(gridExtra); library(chemometrics); library(car);library(regclass);library(missMDA)
+library(FactoMineR);library(DataExplorer);library(mice); library(lmtest);library(gridExtra); library(chemometrics); library(car);library(regclass);library(missMDA);library(effects)
 
 
 #setwd("C:/Users/usuario/Desktop/SIM/SIM-project-2")
@@ -39,6 +44,7 @@ Then we performed data preparation over the data. It consisted of 4 different st
 ## Univariate Descriptive Analysis
 
 Before performing the descriptive analysis, some variables had to be changed in order to better understand them and also to follow the same characteristics
+
 
 ```{r}
 str(df)
@@ -434,6 +440,8 @@ Model 3 explored the effect of transforming MonthlyCharges into a logarithmic sc
 Model 4 introduced an interaction term between tenure and MonthlyCharges.
 
 Model 5 took a more complex approach, using polynomial transformations for both tenure and MonthlyCharges. This model achieved the lowest AIC, indicating a better fit. However, the complexity of this model, with higher-order polynomials, might lead to overfitting and interpretability challenges, despite its apparent predictive power.
+
+- DESCRIBIR MODEL 6 Y EXPLICAR PORQUE LO ESCOGEMOS
 ```{r}
 
 mod1 <- glm(Churn ~ tenure + MonthlyCharges + TotalCharges, family="binomial", data=train_data)
@@ -462,4 +470,99 @@ mod5 <- glm(Churn ~ poly(tenure, 7) + poly(MonthlyCharges, 11), family="binomial
 mod5
 vif(mod5)
 AIC(mod5)
+
+mod6 <- glm(Churn ~ poly(tenure, 2) + MonthlyCharges, family="binomial", data=train_data)
+mod6
+vif(mod6)
+AIC(mod6)
 ```
+
+# Resiludal Analysis
+
+- Una vez escogido el mejor model, validamos la calidad del modelo buscando la no-linearidad de la varianza entee lso errores entre las variables predictoras y la clase...
+- ANALISIS DEL PEARSON RESIDUAL PLOT(CHATGPT + MARC...)
+- MARGINAL MODEL (DISCUTIR SI ESTA OVERFITEANDO)
+
+
+```{r}
+
+par("mar")
+par(mar=c(1,1,1,1))
+residualPlots(mod6)
+marginalModelPlots(mod6)
+plot(allEffects(mod6))
+influencePlot(mod6)
+
+```
+
+# Adding Factors to our model
+- HEMOS HECHO ANOVA Y STEP PARA QUE NOS ANALICE QUE VARIABLES SON MAS SIGNIFICATIVAS.COMO NOS HA DADO RESULTADOS DISTINTOS, HEMOS CREADO DOS MODELOS DIFERENTES Y COMPARADO CON ANOVA (EN MINUSCILA)
+- anova: Pr(>Chi): Es el p-valor asociado con la prueba de Chi-cuadrado. Un p-valor muy bajo (en este caso, menor que 2.2e-16) indica que la mejora en el ajuste del modelo al pasar de mod8 a mod9 es estadísticamente significativa.
+```{r}
+
+mod7 <- glm(Churn ~ poly(tenure, 2) + MonthlyCharges + gender + SeniorCitizen + Partner
+            + Dependents + PhoneService + MultipleLines + InternetService + OnlineSecurity
+            + OnlineBackup + DeviceProtection + TechSupport + StreamingTV + StreamingMovies
+            + Contract + PaperlessBilling + PaymentMethod, family="binomial", data=train_data)
+mod7
+
+# Removing non-significant variables
+Anova(mod7, test="LR")
+step(mod7)
+
+mod8 <- glm(Churn ~ poly(tenure, 2) + SeniorCitizen + MultipleLines
+            + Contract + PaperlessBilling + PaymentMethod, family="binomial", data=train_data)
+AIC(mod8)
+mod9 <- glm(formula = Churn ~ poly(tenure, 2) + MonthlyCharges + SeniorCitizen + 
+    MultipleLines + InternetService + OnlineSecurity + TechSupport + 
+    StreamingTV + StreamingMovies + Contract + PaperlessBilling + 
+    PaymentMethod, family = "binomial", data = train_data)
+AIC(mod9)
+
+anova(mod8, mod9, test="Chisq")
+
+```
+
+# Resiludal Analysis: Factors
+
+- Explicar lo que hemos visto antes (mensaje de discord)
+
+```{r}
+
+par("mar")
+par(mar=c(1,1,1,1))
+residualPlots(mod9)
+marginalModelPlots(mod9)
+# plot(allEffects(mod9)) -- da error
+influencePlot(mod9)
+
+```
+
+# Modeling with interactions
+- ANOVA PA VER CUALES SON LAS VARIABLES MAS INFLUYENTES DEL MODELO Y TRANSFORMAR ESAS.
+- GREEDY SEARCH PA VER CUAL TIENE MENOS AIC
+```{r}
+
+Anova(mod9, test="LR")
+
+mod10 <- glm(formula = Churn ~ poly(tenure, 2) * Contract + MonthlyCharges + SeniorCitizen + 
+    MultipleLines * InternetService + OnlineSecurity + TechSupport + 
+    StreamingTV + StreamingMovies + PaperlessBilling + 
+    PaymentMethod, family = "binomial", data = train_data)
+AIC(mod10)
+
+```
+
+# Final Resiludal Analysis
+
+- 
+
+```{r}
+
+
+```
+
+# Goodness of fit and Model Interpretation
+
+- USAR EL TEST SET
+- VER CUANTO HA OVERFITTEAO Y CUANTO ACIERTA EN EL TEST EN COMPARACION CON EL TRAIN. SACAR EL ACCURACY (CONFUSION MATRIX, ROC CURVE, ETC)
