@@ -428,7 +428,6 @@ test_data <- df[-index, ]
 
 # Modeling using numeric variables.
 
-
 Five logistic regression models were developed to predict customer churn using different combinations and transformations of the numeric variables tenure, MonthlyCharges, and TotalCharges.
 
 Model 1 incorporated all three variables (tenure, MonthlyCharges, TotalCharges). However, high multicollinearity was detected between tenure and TotalCharges, leading to their exclusion due to redundancy. This model yielded an AIC of 5205.915.
@@ -441,9 +440,10 @@ Model 4 introduced an interaction term between tenure and MonthlyCharges.
 
 Model 5 took a more complex approach, using polynomial transformations for both tenure and MonthlyCharges. This model achieved the lowest AIC, indicating a better fit. However, the complexity of this model, with higher-order polynomials, might lead to overfitting and interpretability challenges, despite its apparent predictive power.
 
-- DESCRIBIR MODEL 6 Y EXPLICAR PORQUE LO ESCOGEMOS
-```{r}
+Model 6 was a combination of model 2 and model 5, but trying to simplify to the maximum our model. We introduced no interaction between our variables, but we added a polynomial of degree two to Tenure. This model obtained an AIC higher than model 5 but lower than all the other models.
 
+Having computed all these models, we decided to take model 6 as our final numerical model. In comparison to model 5, it has a relatively high AIC (>100 of difference), but is simpler. Model 5 consists of the two variables with very high polynomials (7 and 11). 
+```{r}
 mod1 <- glm(Churn ~ tenure + MonthlyCharges + TotalCharges, family="binomial", data=train_data)
 mod1
 vif(mod1) # Correlacion muy alta entre Total y tenure. Quitamos Total por ser ombinacion lineal de tenure.
@@ -477,12 +477,27 @@ vif(mod6)
 AIC(mod6)
 ```
 
-# Resiludal Analysis
+# Residual Analysis
 
-- Una vez escogido el mejor model, validamos la calidad del modelo buscando la no-linearidad de la varianza entee lso errores entre las variables predictoras y la clase...
-- ANALISIS DEL PEARSON RESIDUAL PLOT(CHATGPT + MARC...)
-- MARGINAL MODEL (DISCUTIR SI ESTA OVERFITEANDO)
+Once our numerical model was chosen, we wanted to validate it. To validate the quality of our model we search for the no-linearity of the variance between the errors of the predictor variables and the class. 
 
+Residual plots show pearson residuals in relation with predictor variables and the linear predictor. Within these plots we want to search the absence of clear patterns, which could indicate no-linearities or heteroscedasticity (inconstant variability of the residuals).
+
+In the first two plots (Linear part of poly(tenure, 2) , MonthlyCharges) we do not observe clear/systematic patterns between variables and residuals, suggesting a constant variability of the errors. We do not observe clear signals of no-linearity or heteroscedasticity.
+
+The Linear Predictor plot shows the residuals vs the adjusted values (linear predictor). We expected to observe distributed across the horizontal line in zero. In our plot we observe a tendency of the residuals to deviate from zero, indicating that the model is not capturing well the variability of the residuals.
+
+The Marginal Model Plots show the relationship between each predictor and the response, where the red dotted line represents the predictions of the model and the blue line represents the real data. 
+
+Although in poly(tenure,2) the model deviates a little bit from the real data, in general terms we can observe in both plots that the model captures correctly the tendency of the data.
+
+The Effect plots show the relationship between the predictors and the Churn probability. The blue shadow indicates the confidence interval. 
+
+In the Tenure effect plot we observe a non-linear relationship, decreasing the probability of churn as Tenure increases. The MonthlyCharges plot indicates that as MonthlyCharges increase, the probability of Churn also increases. This was expected as the customers tend to leave the company of their monthly charges increase / are higher.
+
+Influence Plots visualize the influence of each observation in the model, being the size of the points proportional to Cook's distance (influence measure).
+
+Most of the observations have low leverage values, indicating that there are not high influent data. There are 6 individuals (6119, 269, 4587, 4150, 6425 and 431) with a higher Cook's distance, being the most influent data in the model.
 
 ```{r}
 
@@ -496,8 +511,10 @@ influencePlot(mod6)
 ```
 
 # Adding Factors to our model
-- HEMOS HECHO ANOVA Y STEP PARA QUE NOS ANALICE QUE VARIABLES SON MAS SIGNIFICATIVAS.COMO NOS HA DADO RESULTADOS DISTINTOS, HEMOS CREADO DOS MODELOS DIFERENTES Y COMPARADO CON ANOVA (EN MINUSCILA)
-- anova: Pr(>Chi): Es el p-valor asociado con la prueba de Chi-cuadrado. Un p-valor muy bajo (en este caso, menor que 2.2e-16) indica que la mejora en el ajuste del modelo al pasar de mod8 a mod9 es estadísticamente significativa.
+
+After having created and validated our model with numerical variables, we decided to incorporate all the factor variables of the dataset into our model. As it is a very big model, we wanted to select the most significant variables to Churn. We used two different approaches: Anova and Step. With the results from both approaches, we decided to create two different models (mod8 & mod9). Then we performed a comparison between both of them to see which one of the two had the best AIC. We observed that mod8, corresponding to the model with Anova results, had an AIC of 4988, even higher than the model with all factors (4753). On the other hand mod9, corresponding to step results, had a better AIC, even compared to the original model (4746 vs 4753). 
+To gain validation to mod9, we compared mod8 and mod9 with anova (different from Anova). The anova method shows a p-value when comparing models, which tells us about the improvement of one model compared to the other. In our case, we observed a very significant p-value from mod9, meaning that mod9 significantly improves mod8, so we decided to keep it as our final factor model.
+
 ```{r}
 
 mod7 <- glm(Churn ~ poly(tenure, 2) + MonthlyCharges + gender + SeniorCitizen + Partner
@@ -523,9 +540,17 @@ anova(mod8, mod9, test="Chisq")
 
 ```
 
-# Resiludal Analysis: Factors
+# Residual Analysis: Factors
 
-- Explicar lo que hemos visto antes (mensaje de discord)
+We next validated our model with the same approach we used before. For poly(tenure, 2) & MonthlyCharges we do not observe systematic patterns neither heteroscedasticity. This indicates that the transformations and the linear relationship for these variables are correct.
+
+For factor variables we observe that the vast majority of observations are distributed around 0, indicating a uniform performance of the model across the different groups of these variables. Nonetheless, there are some observations which differ from 0, which could suggest they're influent data.
+
+In the Marginal Plots we see that the model follows the tendency of the real data, suggesting that the model adjusts correctly to the variability in these predictors.
+
+In the influence plot, the majority of observations have a low influence in the model. However, there are some individuals containing a relatively high Cook's distance, suggesting that those observations are influent data. These points need a more detailed analysis in order to determine if they represent atypical values.
+
+In comparison with the previous residual analysis, we did observe one individual which keeps being influent in our model, which is 269.
 
 ```{r}
 
@@ -539,27 +564,58 @@ influencePlot(mod9)
 ```
 
 # Modeling with interactions
-- ANOVA PA VER CUALES SON LAS VARIABLES MAS INFLUYENTES DEL MODELO Y TRANSFORMAR ESAS.
-- GREEDY SEARCH PA VER CUAL TIENE MENOS AIC
-```{r}
 
+In order to build our model with interactions, first we decided to perform an Anova to observe which are the most significant variables in our model and transform those. Here we observed that almost all are significant, but the ones with lower p-value are tenure, InternetService, Contract, PaperlessBilling & PaymentMethod.
+
+As Contract and Tenure were the most significant variables, we decided to create a model with interactions between them. We observed that with this model the AIC value decreased from 4746 (mod9) to 4729 (mod10). To see if mod10 was significantly different from mod9, we performed an anova. Here we obtained a p-value near 0 (6.415e-05) meaning that mod10 was significantly different from mod9.
+
+As creating interactions between the most significant variables exhibited a decrease in the AIC value and significance, we decided to create PaperlessBilling and PaymentMethod (maintaining the interaction before). It showed an AIC value lower than mod9 (4732) but higher than mod10.
+
+Finally we decided to create a model maintaining the first interaction with Tenure and Contract, but creating interactions between the less significant variables, as the approach we performed before didn't performed correctly. In mod12 we introduced an interaction between MonthlyCharges and SeniorCitizen and another one between OnlineSecurity and Techsupport. We observed a decrease in the AIC value (4724) compared to mod9 and mod10. To see whether this model was significantly different from mod10 we used again anova. Here we observed a significance (p-value of 0.01), meaning that this model is different from the one created before.
+
+```{r}
 Anova(mod9, test="LR")
 
+# Interaction between tenure & Contract
 mod10 <- glm(formula = Churn ~ poly(tenure, 2) * Contract + MonthlyCharges + SeniorCitizen + 
-    MultipleLines * InternetService + OnlineSecurity + TechSupport + 
+    MultipleLines + InternetService + OnlineSecurity + TechSupport + 
     StreamingTV + StreamingMovies + PaperlessBilling + 
     PaymentMethod, family = "binomial", data = train_data)
 AIC(mod10)
+anova(mod9,mod10,test = "Chisq")
+
+# Interaction with PaperlessBilling and PaymentMethod
+mod11 <- glm(formula = Churn ~ poly(tenure, 2) * Contract + MonthlyCharges + SeniorCitizen + 
+    MultipleLines + InternetService + OnlineSecurity + TechSupport + 
+    StreamingTV + StreamingMovies + PaperlessBilling * 
+    PaymentMethod, family = "binomial", data = train_data)
+AIC(mod11)
+
+anova(mod10,mod11,test = "Chisq")
+
+# Interaction between less significant variables
+mod12 <- glm(formula = Churn ~ poly(tenure, 2) * Contract + MonthlyCharges * SeniorCitizen + 
+    MultipleLines + InternetService + OnlineSecurity * TechSupport + 
+    StreamingTV + StreamingMovies + PaperlessBilling + 
+    PaymentMethod, family = "binomial", data = train_data)
+AIC(mod12)
+
+anova(mod10,mod12,test = "Chisq")
+anova(mod9,mod12,test = "Chisq")
 
 ```
 
-# Final Resiludal Analysis
+# Final Residual Analysis
 
 - 
 
 ```{r}
-
-
+par("mar")
+par(mar=c(1,1,1,1))
+residualPlots(mod9)
+marginalModelPlots(mod9)
+# plot(allEffects(mod9)) -- da error
+influencePlot(mod9)
 ```
 
 # Goodness of fit and Model Interpretation
