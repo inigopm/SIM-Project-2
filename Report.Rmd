@@ -18,7 +18,7 @@ if(!is.null(dev.list())) dev.off()
 rm(list=ls())
 
 library(tidyverse);library(EnvStats);library(ggplot2); library(ggpubr); library(visdat)
-library(FactoMineR);library(DataExplorer);library(mice); library(lmtest);library(gridExtra); library(chemometrics); library(car);library(regclass);library(missMDA);library(effects)
+library(FactoMineR);library(DataExplorer);library(mice); library(lmtest);library(gridExtra); library(chemometrics); library(car);library(regclass);library(missMDA);library(effects);library(caret);library(pROC)
 
 
 #setwd("C:/Users/usuario/Desktop/SIM/SIM-project-2")
@@ -607,18 +607,80 @@ anova(mod9,mod12,test = "Chisq")
 
 # Final Residual Analysis
 
-- 
+The residual plots indicate that there is no apparent problematic pattern in the residuals for the linear part of poly(tenure, 2), suggesting that the polynomial transformation of tenure is adequately capturing its relationship with churn. Also for MonthlyCharges, Contract and SeniorCitizen, the residuals are evenly distributed, suggesting that the model fits these variables appropriately without obvious signs of misfit.
+
+The other categorical variables, such as MultipleLines, InternetService, OnlineSecurity, TechSupport, StreamingTV, and StreamingMovies, also do not show any clear patterns in the residuals, which is generally a good sign. However, there are some outliers in each category that could be potential points of concern. These could be instances of unusual variance not accounted for by the model or could represent unique situations that are not well-represented in the data.
+
+The marginal model plots, which illustrate the relationship between the predictor variables and the probability of churn, show that the model's predictions are in good agreement with the actual data. This suggests that the model is capturing the general trends in the data effectively, particularly for the tenure variable and the linear predictor.
+
+The influence plot reveals several observations with relatively high influence on the model, as indicated by larger Cook's distance values. These points may be outliers or have high leverage and could significantly impact the model's results. Such observations might warrant closer examination and potential exclusion if they are determined to be undue influences.
+
+In concluding the residual analysis, it was considered whether to remove the influential observations to improve model generalization. However, it was decided to retain them, acknowledging that their volume contributes significant information to the dataset. Removing these data points could result in a greater imbalance, detracting from the model's representativeness of the actual customer population. Therefore, to preserve the dataset's integrity and maintain its balance, these variables were kept despite their potential influence.
 
 ```{r}
 par("mar")
 par(mar=c(1,1,1,1))
-residualPlots(mod9)
-marginalModelPlots(mod9)
-# plot(allEffects(mod9)) -- da error
-influencePlot(mod9)
+residualPlots(mod12)
+marginalModelPlots(mod12)
+# plot(allEffects(mod12)) -- da error
+influencePlot(mod12)
 ```
 
 # Goodness of fit and Model Interpretation
 
-- USAR EL TEST SET
-- VER CUANTO HA OVERFITTEAO Y CUANTO ACIERTA EN EL TEST EN COMPARACION CON EL TRAIN. SACAR EL ACCURACY (CONFUSION MATRIX, ROC CURVE, ETC)
+The results from the mod12 logistic regression model evaluation reveal a strong predictive performance. A key aspect of assessing model quality is its accuracy on unseen data, and with an accuracy of approximately 83.39% on the test set, mod12 demonstrates a robust capacity to predict customer churn. The confusion matrix further underscores this performance, with a substantial number of correct predictions as compared to the incorrect ones. The sensitivity and specificity values indicate a good balance in predicting both the positive and negative classes, although there is a stronger performance in predicting the non-churners (No) over the churners (Yes).
+
+The AUC for the test set, sitting at around 0.8635, suggests that the model has a high ability to discriminate between churners and non-churners. This is further corroborated by the ROC curve. A high AUC value is indicative of a model that provides a good separation between the two classes.
+
+When the model's performance on the training set is compared to the test set, we see a slight dip in both accuracy and AUC. However, this difference is minimal, signaling that the model has not overfitted to the training data and is generalizing well to new, unseen data.
+
+```{r}
+
+# Predict on the test set
+test_probabilities <- predict(mod12, newdata = test_data, type = "response")
+test_predictions <- ifelse(test_probabilities > 0.5, "Yes", "No")
+
+test_data$Churn <- factor(test_data$Churn, levels = c("No", "Yes"))
+test_predictions <- factor(test_predictions, levels = c("No", "Yes"))
+
+# Create the confusion matrix
+conf_matrix <- confusionMatrix(test_predictions, test_data$Churn)
+print(conf_matrix)
+
+# Calculate accuracy
+accuracy <- sum(diag(conf_matrix$table)) / sum(conf_matrix$table)
+print(paste("Accuracy on test set:", accuracy))
+
+# ROC curve and AUC
+roc_test <- roc(test_data$Churn, test_probabilities)
+auc_test <- auc(roc_test)
+plot(roc_test, main = "ROC Curve for Test Data")
+print(paste("AUC for test set:", auc_test))
+
+# ------- Same for train set (to see how much it overfitted)
+# Calculate predictions and probabilities on the training set
+train_probabilities <- predict(mod12, newdata = train_data, type = "response")
+train_predictions <- ifelse(train_probabilities > 0.5, "Yes", "No")
+
+# Ensure the predictions are factors with the same levels
+train_data$Churn <- factor(train_data$Churn, levels = c("No", "Yes"))
+train_predictions <- factor(train_predictions, levels = c("No", "Yes"))
+
+# Create confusion matrix for the training set
+train_conf_matrix <- confusionMatrix(train_predictions, train_data$Churn)
+
+# Calculate accuracy for the training set
+train_accuracy <- sum(diag(train_conf_matrix$table)) / sum(train_conf_matrix$table)
+
+# Calculate ROC and AUC for the training set
+train_roc <- roc(train_data$Churn, train_probabilities)
+train_auc <- auc(train_roc)
+
+# Output the train accuracy and AUC
+print(paste("Accuracy on training set:", train_accuracy))
+print(paste("AUC for training set:", train_auc))
+
+# Check for overfitting
+print(paste("Overfitting check - Difference in AUC:", train_auc - auc_test))
+
+```
