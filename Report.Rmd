@@ -4,9 +4,7 @@ author: "Inigo Pikabea and Max Tico"
 date: "2023-11-27"
 output:
   word_document: default
-  html_document:
-    fig_width: 2
-    fig_height: 1.5
+  html_document: default
   pdf_document: default
 ---
 
@@ -319,58 +317,24 @@ ggplot(data=df,aes(factor_totalcharges,fill=factor_totalcharges))+
               aes(label = after_stat(count)),position=position_stack(vjust=0.5))
 ```
 
-## Univariate and Multivariate analysis.
-
-After taking the only 3 numeric values, the analysis showed that there are no univariate outliers. The lack of univariate outliers in the data suggests that the values within each of these variables fall within a reasonable range, without extreme values that could skew the analysis.
-
-We wanted to assess also if multivariate outliers were seen or not. We used the robust Mahalanobis distance and we did not observe any multivariate outlier.
-
-```{r}
-num_outliers <- c("tenure", "MonthlyCharges", "TotalCharges")
-'
-for(i in 1:length(num_outliers)) {
-  columna <- num_outliers[i]
-  
-  # Calculate the thresholds
-  q1 <- quantile(df[columna],0.25, na.rm = TRUE) 
-  q3 <- quantile(df[columna],0.75, na.rm = TRUE) 
-  iqr <- q3 - q1
-  mild_l <- q1 - iqr*1.5
-  mild_h <- q3 + iqr*1.5
-  high_l <- q1 - iqr*3
-  high_h <- q3 + iqr*3
-  
-  # Create the plot
-  p <- ggplot(df, aes(x=!!sym(columna))) +
-    geom_histogram(color="black", fill="white", bins=30) +
-    geom_vline(aes(xintercept=mild_l), color="blue", linetype="dashed") +
-    geom_vline(aes(xintercept=mild_h), color="blue", linetype="dashed") +
-    geom_vline(aes(xintercept=high_l), color="red", linetype="dashed") +
-    geom_vline(aes(xintercept=high_h), color="red", linetype="dashed") +
-    labs(x = columna, y="Frequency", title = paste("Histogram of", columna))
-  # Add the plot to the list
-  print(p)
-}
-'
-#res.out = Moutlier(df[, num_outliers], quantile = 0.9995, col="green")
-
-#outlier_index <- which((res.out$md > res.out$cutoff)&(res.out$rd > res.out$cutoff))
-#length(outlier_index)
-
-#par(mfrow=c(1,1))
-#plot( res.out$md, res.out$rd )
-#abline(h=res.out$cutoff, col="red")
-#abline(v=res.out$cutoff, col="red")
-```
-
 ## Data Quality Report
 
 Afterwards, for each variable we counted the number of missing values and ranked them according to the sum of missing values. In total, we found 95 missing values, corresponding to variables
 TotalCharges and factor_totalcharges. We performed a boxplot for every numerical feature in order to identify outliers but no outliers were identified.
+
+After observing the correlations between numerical data, we see that TotalCharges shows a high correlation with both MonthlyCharges (0.6515) and tenure (0.8263). This strong correlation suggests that, in the model creation, TotalCharges might not add independent value in a predictive model if MonthlyCharges and tenure are already included. In building our final model, we'll consider excluding TotalCharges or carefully examine its impact, particularly on metrics like the Akaike Information Criterion (AIC), to avoid potential multicollinearity and ensure model efficiency.
 ```{r}
+
+# NA's
 missing_counts <- colSums(is.na(df));missing_counts
 
 total_missings <- sum(is.na(df));total_missings
+
+num_corr <- c("tenure", "MonthlyCharges", "TotalCharges")
+
+# Correlations
+correlations <- cor(df[, num_corr], use = "complete.obs")
+correlations
 
 # Outlier detection
 length(Boxplot(df$tenure, id = list(n = Inf)))
@@ -384,8 +348,6 @@ We also counted the number of missings per individuals and number of outliers (i
 missing_per_individual <- rowSums(is.na(df));missing_per_individual
 ```
 
-Falta create variable ???
-
 ## Imputation
 
 As we observed before, there are some variables of our dataset with missing values (TotalCharges & factor_totalcharges). In order to solve this, we imputed those values. As one of this variables is numeric and the other one is categorical, we had to follow different approaches. For the numeric variable, we used imputePCA() function from missMDA library. For the categoric variable we used imputeMCA() function from missMDA library too, which is helpful for imputation of missing values in categorical features.
@@ -397,6 +359,51 @@ df$TotalCharges <- res.pca$completeObs[, 3]
 # Imputation of categorical variable factor_totalcharges
 res.mca <- imputeMCA(df[, c(2:5,7:18,21:23)])
 df$factor_totalcharges <- res.mca$completeObs[, 19]
+```
+
+## Univariate and Multivariate analysis.
+
+After taking the only 3 numeric values, the analysis showed that there are no univariate outliers. The lack of univariate outliers in the data suggests that the values within each of these variables fall within a reasonable range, without extreme values that could skew the analysis.
+
+We wanted to assess also if multivariate outliers were seen or not. We used the robust Mahalanobis distance and we did not observe any multivariate outlier.
+
+```{r}
+num_outliers <- c("tenure", "MonthlyCharges", "TotalCharges")
+
+for(i in 1:length(num_outliers)) {
+  columna <- num_outliers[i]
+
+  # Calculate the thresholds
+  q1 <- quantile(df[columna],0.25, na.rm = TRUE)
+  q3 <- quantile(df[columna],0.75, na.rm = TRUE)
+  iqr <- q3 - q1
+  mild_l <- q1 - iqr*1.5
+  mild_h <- q3 + iqr*1.5
+  high_l <- q1 - iqr*3
+  high_h <- q3 + iqr*3
+
+  # Create the plot
+  p <- ggplot(df, aes(x=!!sym(columna))) +
+    geom_histogram(color="black", fill="white", bins=30) +
+    geom_vline(aes(xintercept=mild_l), color="blue", linetype="dashed") +
+    geom_vline(aes(xintercept=mild_h), color="blue", linetype="dashed") +
+    geom_vline(aes(xintercept=high_l), color="red", linetype="dashed") +
+    geom_vline(aes(xintercept=high_h), color="red", linetype="dashed") +
+    labs(x = columna, y="Frequency", title = paste("Histogram of", columna))
+  # Add the plot to the list
+  print(p)
+}
+res.out = Moutlier(na.omit(df[, num_outliers]), quantile = 0.9995, col="green")
+
+outlier_index <- which((res.out$md > res.out$cutoff)&(res.out$rd > res.out$cutoff))
+length(outlier_index)
+
+# par(mfrow=c(1,1))
+xlim_range = c(min(res.out$md, na.rm = TRUE), 4.5)
+plot( res.out$md, res.out$rd, xlim=xlim_range)
+abline(h=res.out$cutoff, col="red")
+abline(v=res.out$cutoff, col="red")
+
 ```
 
 ## Profiling
@@ -500,8 +507,6 @@ Most of the observations have low leverage values, indicating that there are not
 
 ```{r}
 
-par("mar")
-par(mar=c(1,1,1,1))
 residualPlots(mod6)
 marginalModelPlots(mod6)
 plot(allEffects(mod6))
@@ -552,8 +557,6 @@ In comparison with the previous residual analysis, we did observe one individual
 
 ```{r}
 
-par("mar")
-par(mar=c(1,1,1,1))
 residualPlots(mod9)
 marginalModelPlots(mod9)
 # plot(allEffects(mod9)) -- da error
@@ -616,8 +619,6 @@ The influence plot reveals several observations with relatively high influence o
 In concluding the residual analysis, it was considered whether to remove the influential observations to improve model generalization. However, it was decided to retain them, acknowledging that their volume contributes significant information to the dataset. Removing these data points could result in a greater imbalance, detracting from the model's representativeness of the actual customer population. Therefore, to preserve the dataset's integrity and maintain its balance, these variables were kept despite their potential influence.
 
 ```{r}
-par("mar")
-par(mar=c(1,1,1,1))
 residualPlots(mod12)
 marginalModelPlots(mod12)
 # plot(allEffects(mod12)) -- da error
