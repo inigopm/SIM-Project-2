@@ -2,13 +2,13 @@
 title: "Report"
 author: "Inigo Pikabea and Max Tico"
 date: "2023-11-27"
-output: html_document
+output:
+  word_document: default
+  html_document:
+    fig_width: 2
+    fig_height: 1.5
+  pdf_document: default
 ---
-
-- TODOS:  Data validation is mixed of ‘common sense and sector knowledge’: Does the data make
-sense? Does the data follow the appropriate rules for its field? Does it prove or disprove the
-working theory, or bring any insight to light? Can you find trends in the data to help you form
-a new theory? If not, is that because of a data quality issue?
 
 ```{r setup, include=FALSE}
 # Clear plots
@@ -323,11 +323,11 @@ ggplot(data=df,aes(factor_totalcharges,fill=factor_totalcharges))+
 
 After taking the only 3 numeric values, the analysis showed that there are no univariate outliers. The lack of univariate outliers in the data suggests that the values within each of these variables fall within a reasonable range, without extreme values that could skew the analysis.
 
--- FALTA COMENTAR MULTIVARIATE ANALYSIS (NO SE COMO INTERPRETAR LA GRAFICA)
+We wanted to assess also if multivariate outliers were seen or not. We used the robust Mahalanobis distance and we did not observe any multivariate outlier.
 
 ```{r}
-
 num_outliers <- c("tenure", "MonthlyCharges", "TotalCharges")
+'
 for(i in 1:length(num_outliers)) {
   columna <- num_outliers[i]
   
@@ -351,17 +351,16 @@ for(i in 1:length(num_outliers)) {
   # Add the plot to the list
   print(p)
 }
+'
+#res.out = Moutlier(df[, num_outliers], quantile = 0.9995, col="green")
 
-res.out = Moutlier(df[, num_outliers], quantile = 0.9995, col="green")
+#outlier_index <- which((res.out$md > res.out$cutoff)&(res.out$rd > res.out$cutoff))
+#length(outlier_index)
 
-outlier_index <- which((res.out$md > res.out$cutoff)&(res.out$rd > res.out$cutoff))
-length(outlier_index)
-
-par(mfrow=c(1,1))
-plot( res.out$md, res.out$rd )
-abline(h=res.out$cutoff, col="red")
-abline(v=res.out$cutoff, col="red")
-
+#par(mfrow=c(1,1))
+#plot( res.out$md, res.out$rd )
+#abline(h=res.out$cutoff, col="red")
+#abline(v=res.out$cutoff, col="red")
 ```
 
 ## Data Quality Report
@@ -516,7 +515,6 @@ After having created and validated our model with numerical variables, we decide
 To gain validation to mod9, we compared mod8 and mod9 with anova (different from Anova). The anova method shows a p-value when comparing models, which tells us about the improvement of one model compared to the other. In our case, we observed a very significant p-value from mod9, meaning that mod9 significantly improves mod8, so we decided to keep it as our final factor model.
 
 ```{r}
-
 mod7 <- glm(Churn ~ poly(tenure, 2) + MonthlyCharges + gender + SeniorCitizen + Partner
             + Dependents + PhoneService + MultipleLines + InternetService + OnlineSecurity
             + OnlineBackup + DeviceProtection + TechSupport + StreamingTV + StreamingMovies
@@ -525,7 +523,7 @@ mod7
 
 # Removing non-significant variables
 Anova(mod7, test="LR")
-step(mod7)
+step(mod7,trace = FALSE)
 
 mod8 <- glm(Churn ~ poly(tenure, 2) + SeniorCitizen + MultipleLines
             + Contract + PaperlessBilling + PaymentMethod, family="binomial", data=train_data)
